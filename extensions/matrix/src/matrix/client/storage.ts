@@ -1,11 +1,12 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { normalizeAccountId } from "openclaw/plugin-sdk/account-id";
+import { maybeCreateMatrixMigrationSnapshot } from "../../../../../src/infra/matrix-migration-snapshot.js";
 import {
   requiresExplicitMatrixDefaultAccount,
   resolveMatrixDefaultOrOnlyAccountId,
 } from "../../account-selection.js";
-import { maybeCreateMatrixMigrationSnapshot, normalizeAccountId } from "../../runtime-api.js";
 import { getMatrixRuntime } from "../../runtime.js";
 import {
   resolveMatrixAccountStorageRoot,

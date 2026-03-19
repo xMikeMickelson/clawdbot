@@ -1,16 +1,18 @@
 import fs from "node:fs";
 import os from "node:os";
 import {
-  findMatrixAccountEntry,
   getMatrixScopedEnvVarNames,
-  requiresExplicitMatrixDefaultAccount,
-  resolveMatrixAccountStringValues,
-  resolveConfiguredMatrixAccountIds,
   resolveMatrixAccountStorageRoot,
-  resolveMatrixChannelConfig,
   resolveMatrixCredentialsPath,
+} from "../../extensions/matrix/helper-api.js";
+import {
+  findMatrixAccountEntry,
+  requiresExplicitMatrixDefaultAccount,
+  resolveConfiguredMatrixAccountIds,
+  resolveMatrixChannelConfig,
   resolveMatrixDefaultOrOnlyAccountId,
-} from "../../extensions/matrix/runtime-api.js";
+} from "../../extensions/matrix/src/account-selection.js";
+import { resolveMatrixAccountStringValues } from "../../extensions/matrix/src/auth-precedence.js";
 import type { OpenClawConfig } from "../config/config.js";
 import { resolveStateDir } from "../config/paths.js";
 import { DEFAULT_ACCOUNT_ID, normalizeAccountId } from "../routing/session-key.js";
