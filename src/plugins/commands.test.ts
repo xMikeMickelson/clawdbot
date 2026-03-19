@@ -1,14 +1,16 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { discordPlugin } from "../../extensions/discord/src/channel.js";
 import { createTestRegistry } from "../test-utils/channel-plugins.js";
 import {
   __testing,
   clearPluginCommands,
+  clearPluginCommandsForPlugin,
   executePluginCommand,
   getPluginCommandSpecs,
   listPluginCommands,
   matchPluginCommand,
   registerPluginCommand,
+  subscribePluginCommandRegistry,
 } from "./commands.js";
 import { setActivePluginRegistry } from "./runtime.js";
 
@@ -106,6 +108,27 @@ describe("registerPluginCommand", () => {
       },
     ]);
     expect(getPluginCommandSpecs("slack")).toEqual([]);
+  });
+
+  it("notifies subscribers when the registry changes", () => {
+    const listener = vi.fn();
+    const unsubscribe = subscribePluginCommandRegistry(listener);
+
+    expect(
+      registerPluginCommand("demo-plugin", {
+        name: "voice",
+        description: "Demo command",
+        handler: async () => ({ text: "ok" }),
+      }),
+    ).toEqual({ ok: true });
+    expect(listener).toHaveBeenCalledTimes(1);
+
+    clearPluginCommandsForPlugin("demo-plugin");
+    expect(listener).toHaveBeenCalledTimes(2);
+
+    unsubscribe();
+    clearPluginCommands();
+    expect(listener).toHaveBeenCalledTimes(2);
   });
 
   it("matches provider-specific native aliases back to the canonical command", () => {

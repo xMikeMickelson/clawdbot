@@ -211,6 +211,66 @@ describe("registerTelegramNativeCommands", () => {
     expect(registeredCommands.some((entry) => entry.command === "custom-bad")).toBe(false);
   });
 
+  it("keeps plugin handlers active when customCommands provide the Telegram menu entry", async () => {
+    const commandHandlers = new Map<string, (ctx: unknown) => Promise<void>>();
+    const setMyCommands = vi.fn().mockResolvedValue(undefined);
+
+    pluginCommandMocks.getPluginCommandSpecs.mockReturnValue([
+      {
+        name: "dl",
+        description: "Download a video link with the local downloader.",
+      },
+    ] as never);
+    pluginCommandMocks.matchPluginCommand.mockReturnValue({
+      command: { key: "dl", requireAuth: false },
+      args: "https://example.com/video",
+    } as never);
+    pluginCommandMocks.executePluginCommand.mockResolvedValue({
+      text: "downloaded",
+    } as never);
+
+    registerTelegramNativeCommands({
+      ...createNativeCommandTestParams({}, { accountId: `custom-dl-${Date.now()}` }),
+      bot: {
+        api: {
+          setMyCommands,
+          sendMessage: vi.fn().mockResolvedValue(undefined),
+        },
+        command: vi.fn((name: string, cb: (ctx: unknown) => Promise<void>) => {
+          commandHandlers.set(name, cb);
+        }),
+      } as unknown as Parameters<typeof registerTelegramNativeCommands>[0]["bot"],
+      telegramCfg: {
+        customCommands: [
+          {
+            command: "dl",
+            description: "Download a video link with the local downloader.",
+          },
+        ],
+      } as TelegramAccountConfig,
+    });
+
+    const registeredCommands = await waitForRegisteredCommands(setMyCommands);
+    expect(registeredCommands).toEqual(
+      expect.arrayContaining([
+        {
+          command: "dl",
+          description: "Download a video link with the local downloader.",
+        },
+      ]),
+    );
+
+    const handler = commandHandlers.get("dl");
+    expect(handler).toBeTruthy();
+    await handler?.(createPrivateCommandContext({ match: "https://example.com/video" }));
+
+    expect(pluginCommandMocks.executePluginCommand).toHaveBeenCalledWith(
+      expect.objectContaining({
+        commandBody: "/dl https://example.com/video",
+      }),
+    );
+  });
+
   it("passes agent-scoped media roots for plugin command replies with media", async () => {
     const commandHandlers = new Map<string, (ctx: unknown) => Promise<void>>();
     const sendMessage = vi.fn().mockResolvedValue(undefined);

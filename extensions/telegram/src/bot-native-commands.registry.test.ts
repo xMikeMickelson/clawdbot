@@ -124,6 +124,30 @@ describe("registerTelegramNativeCommands real plugin registry", () => {
     expect(commandHandlers.has("pair")).toBe(true);
   });
 
+  it("resyncs the Telegram menu when plugin commands register after startup", async () => {
+    const { bot, commandHandlers, setMyCommands } = createCommandBot();
+    const accountId = `late-plugin-${Date.now()}`;
+
+    registerTelegramNativeCommands({
+      ...createNativeCommandTestParams({}, { accountId }),
+      bot,
+    });
+
+    await vi.waitFor(() => expect(setMyCommands).toHaveBeenCalledTimes(1));
+    const initialCommands = setMyCommands.mock.calls[0]?.[0] as Array<{ command: string }>;
+    expect(initialCommands.some((entry) => entry.command === "pair")).toBe(false);
+    expect(commandHandlers.has("pair")).toBe(false);
+
+    registerPairPluginCommand();
+
+    await vi.waitFor(() => expect(setMyCommands).toHaveBeenCalledTimes(2));
+    const refreshedCommands = setMyCommands.mock.calls[1]?.[0] as Array<{ command: string }>;
+    expect(refreshedCommands).toEqual(
+      expect.arrayContaining([{ command: "pair", description: "Pair device" }]),
+    );
+    expect(commandHandlers.has("pair")).toBe(true);
+  });
+
   it("allows requireAuth:false plugin commands for unauthorized senders through the real registry", async () => {
     const { bot, commandHandlers, sendMessage, setMyCommands } = createCommandBot();
 

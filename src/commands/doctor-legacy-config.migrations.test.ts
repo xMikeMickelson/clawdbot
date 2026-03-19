@@ -2,6 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { validateConfigObject } from "../config/config.js";
 import { normalizeCompatibilityConfigValues } from "./doctor-legacy-config.js";
 
 describe("normalizeCompatibilityConfigValues", () => {
@@ -319,6 +320,7 @@ describe("normalizeCompatibilityConfigValues", () => {
       id: "GEMINI_API_KEY",
     });
     expect(res.config.skills?.entries).toBeUndefined();
+    expect(validateConfigObject(res.config).ok).toBe(true);
     expect(res.changes).toEqual([
       "Moved skills.entries.nano-banana-pro → agents.defaults.imageGenerationModel.primary (google/gemini-3-pro-image-preview).",
       "Moved skills.entries.nano-banana-pro.apiKey → models.providers.google.apiKey.",
@@ -341,6 +343,7 @@ describe("normalizeCompatibilityConfigValues", () => {
     });
 
     expect(res.config.models?.providers?.google?.apiKey).toBe("env-gemini-key");
+    expect(validateConfigObject(res.config).ok).toBe(true);
     expect(res.changes).toContain(
       "Moved skills.entries.nano-banana-pro.env.GEMINI_API_KEY → models.providers.google.apiKey.",
     );

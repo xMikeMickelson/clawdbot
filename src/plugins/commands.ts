@@ -27,6 +27,7 @@ type RegisteredPluginCommand = OpenClawPluginCommandDefinition & {
 
 // Registry of plugin commands
 const pluginCommands: Map<string, RegisteredPluginCommand> = new Map();
+const pluginCommandRegistryListeners = new Set<() => void>();
 
 // Lock to prevent modifications during command execution
 let registryLocked = false;
@@ -107,6 +108,25 @@ export type CommandRegistrationResult = {
   ok: boolean;
   error?: string;
 };
+
+function notifyPluginCommandRegistryListeners(): void {
+  for (const listener of pluginCommandRegistryListeners) {
+    try {
+      listener();
+    } catch (err) {
+      logVerbose(
+        `Plugin command registry listener failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+  }
+}
+
+export function subscribePluginCommandRegistry(listener: () => void): () => void {
+  pluginCommandRegistryListeners.add(listener);
+  return () => {
+    pluginCommandRegistryListeners.delete(listener);
+  };
+}
 
 /**
  * Validate a plugin command definition without registering it.
@@ -213,6 +233,7 @@ export function registerPluginCommand(
     pluginRoot: opts?.pluginRoot,
   });
   logVerbose(`Registered plugin command: ${key} (plugin: ${pluginId})`);
+  notifyPluginCommandRegistryListeners();
   return { ok: true };
 }
 
@@ -221,17 +242,26 @@ export function registerPluginCommand(
  * Called during plugin reload.
  */
 export function clearPluginCommands(): void {
+  if (pluginCommands.size === 0) {
+    return;
+  }
   pluginCommands.clear();
+  notifyPluginCommandRegistryListeners();
 }
 
 /**
  * Clear plugin commands for a specific plugin.
  */
 export function clearPluginCommandsForPlugin(pluginId: string): void {
+  let removed = false;
   for (const [key, cmd] of pluginCommands.entries()) {
     if (cmd.pluginId === pluginId) {
       pluginCommands.delete(key);
+      removed = true;
     }
+  }
+  if (removed) {
+    notifyPluginCommandRegistryListeners();
   }
 }
 

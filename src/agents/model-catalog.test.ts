@@ -85,6 +85,24 @@ describe("loadModelCatalog", () => {
     }
   });
 
+  it("tolerates auth-only model provider overrides", async () => {
+    mockSingleOpenAiCatalogModel();
+
+    const result = await loadModelCatalog({
+      config: {
+        models: {
+          providers: {
+            google: {
+              apiKey: { source: "env", provider: "default", id: "GEMINI_API_KEY" },
+            } as NonNullable<NonNullable<OpenClawConfig["models"]>["providers"]>["google"],
+          },
+        },
+      } as OpenClawConfig,
+    });
+
+    expect(result).toEqual([{ id: "gpt-4.1", name: "GPT-4.1", provider: "openai" }]);
+  });
+
   it("adds openai-codex/gpt-5.3-codex-spark when base gpt-5.3-codex exists", async () => {
     mockPiDiscoveryModels([
       {
