@@ -836,6 +836,10 @@ export const registerTelegramNativeCommands = ({
       }
 
       for (const pluginCommand of pluginCatalog.commands) {
+        // Keep the startup-time command binding so native Telegram plugin
+        // commands still execute if a later plugin reload temporarily clears
+        // the live plugin-command registry.
+        const registeredPluginCommand = matchPluginCommand(`/${pluginCommand.command}`)?.command;
         bot.command(pluginCommand.command, async (ctx: TelegramNativeCommandContext) => {
           const msg = ctx.message;
           if (!msg) {
@@ -849,8 +853,17 @@ export const registerTelegramNativeCommands = ({
           const runtimeTelegramCfg = resolveFreshTelegramConfig(runtimeCfg);
           const rawText = ctx.match?.trim() ?? "";
           const commandBody = `/${pluginCommand.command}${rawText ? ` ${rawText}` : ""}`;
-          const match = matchPluginCommand(commandBody);
-          if (!match) {
+          const liveMatch = matchPluginCommand(commandBody);
+          const resolvedCommand = liveMatch?.command ?? registeredPluginCommand;
+          if (!resolvedCommand) {
+            await withTelegramApiErrorLogging({
+              operation: "sendMessage",
+              runtime,
+              fn: () => bot.api.sendMessage(chatId, "Command not found."),
+            });
+            return;
+          }
+          if (rawText && resolvedCommand.acceptsArgs === false && !liveMatch) {
             await withTelegramApiErrorLogging({
               operation: "sendMessage",
               runtime,
@@ -870,7 +883,7 @@ export const registerTelegramNativeCommands = ({
             useAccessGroups,
             resolveGroupPolicy,
             resolveTelegramGroupConfig,
-            requireAuth: match.command.requireAuth !== false,
+            requireAuth: resolvedCommand.requireAuth !== false,
           });
           if (!auth) {
             return;
@@ -907,8 +920,8 @@ export const registerTelegramNativeCommands = ({
           const to = `telegram:${chatId}`;
 
           const result = await executePluginCommand({
-            command: match.command,
-            args: match.args,
+            command: resolvedCommand,
+            args: liveMatch?.args ?? (rawText || undefined),
             senderId,
             channel: "telegram",
             isAuthorizedSender: commandAuthorized,
