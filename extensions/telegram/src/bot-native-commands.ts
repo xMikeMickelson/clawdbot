@@ -840,6 +840,16 @@ export const registerTelegramNativeCommands = ({
       }
 
       for (const pluginCommand of pluginCatalog.commands) {
+        const startupPluginMatch = matchPluginCommand(`/${pluginCommand.command}`);
+        if (!startupPluginMatch) {
+          runtime.error?.(
+            danger(
+              `Plugin command "/${pluginCommand.command}" was present in the Telegram catalog but could not be resolved during handler registration.`,
+            ),
+          );
+          continue;
+        }
+        const boundPluginCommand = startupPluginMatch.command;
         bot.command(pluginCommand.command, async (ctx: TelegramNativeCommandContext) => {
           const msg = ctx.message;
           if (!msg) {
@@ -853,8 +863,7 @@ export const registerTelegramNativeCommands = ({
           const runtimeTelegramCfg = resolveFreshTelegramConfig(runtimeCfg);
           const rawText = ctx.match?.trim() ?? "";
           const commandBody = `/${pluginCommand.command}${rawText ? ` ${rawText}` : ""}`;
-          const match = matchPluginCommand(commandBody);
-          if (!match) {
+          if (rawText && !boundPluginCommand.acceptsArgs) {
             await withTelegramApiErrorLogging({
               operation: "sendMessage",
               runtime,
@@ -874,7 +883,7 @@ export const registerTelegramNativeCommands = ({
             useAccessGroups,
             resolveGroupPolicy,
             resolveTelegramGroupConfig,
-            requireAuth: match.command.requireAuth !== false,
+            requireAuth: boundPluginCommand.requireAuth !== false,
           });
           if (!auth) {
             return;
@@ -911,8 +920,8 @@ export const registerTelegramNativeCommands = ({
           const to = `telegram:${chatId}`;
 
           const result = await executePluginCommand({
-            command: match.command,
-            args: match.args,
+            command: boundPluginCommand,
+            args: rawText || undefined,
             senderId,
             channel: "telegram",
             isAuthorizedSender: commandAuthorized,

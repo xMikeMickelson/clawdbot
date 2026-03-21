@@ -59,7 +59,20 @@ describe("getTelegramSequentialKey", () => {
       { message: mockMessage({ chat: mockChat({ id: 123 }), text: "/stop" }) },
       "telegram:123:control",
     ],
-    [{ message: mockMessage({ chat: mockChat({ id: 123 }), text: "/status" }) }, "telegram:123"],
+    [
+      { message: mockMessage({ chat: mockChat({ id: 123 }), text: "/status" }) },
+      "telegram:123:command",
+    ],
+    [
+      {
+        message: mockMessage({
+          chat: mockChat({ id: 123, type: "private" }),
+          message_thread_id: 9,
+          text: "/dl https://example.com/video.mp4",
+        }),
+      },
+      "telegram:123:topic:9:command",
+    ],
     [
       { message: mockMessage({ chat: mockChat({ id: 123 }), text: "/btw what is the time?" }) },
       "telegram:123:btw:1",
@@ -94,8 +107,14 @@ describe("getTelegramSequentialKey", () => {
       { message: mockMessage({ chat: mockChat({ id: 123 }), text: "halt" }) },
       "telegram:123:control",
     ],
-    [{ message: mockMessage({ chat: mockChat({ id: 123 }), text: "/abort" }) }, "telegram:123"],
-    [{ message: mockMessage({ chat: mockChat({ id: 123 }), text: "/abort now" }) }, "telegram:123"],
+    [
+      { message: mockMessage({ chat: mockChat({ id: 123 }), text: "/abort" }) },
+      "telegram:123:command",
+    ],
+    [
+      { message: mockMessage({ chat: mockChat({ id: 123 }), text: "/abort now" }) },
+      "telegram:123:command",
+    ],
     [
       { message: mockMessage({ chat: mockChat({ id: 123 }), text: "please do not do that" }) },
       "telegram:123",

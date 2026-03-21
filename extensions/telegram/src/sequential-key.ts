@@ -1,4 +1,5 @@
 import { type Message, type UserFromGetMe } from "@grammyjs/types";
+import { isCommandMessage } from "openclaw/plugin-sdk/command-auth";
 import { isAbortRequestText } from "openclaw/plugin-sdk/reply-runtime";
 import { isBtwRequestText } from "openclaw/plugin-sdk/reply-runtime";
 import { resolveTelegramForumThreadId } from "./bot/helpers.js";
@@ -19,6 +20,21 @@ export type TelegramSequentialKeyContext = {
   };
 };
 
+function buildTelegramChatSequentialKey(params: {
+  chatId?: number;
+  threadId?: number | null;
+  suffix?: string;
+}): string {
+  if (typeof params.chatId !== "number") {
+    return params.suffix ? `telegram:${params.suffix}` : "telegram:unknown";
+  }
+  const base =
+    params.threadId != null
+      ? `telegram:${params.chatId}:topic:${params.threadId}`
+      : `telegram:${params.chatId}`;
+  return params.suffix ? `${base}:${params.suffix}` : base;
+}
+
 export function getTelegramSequentialKey(ctx: TelegramSequentialKeyContext): string {
   const reaction = ctx.update?.message_reaction;
   if (reaction?.chat?.id) {
@@ -37,10 +53,7 @@ export function getTelegramSequentialKey(ctx: TelegramSequentialKeyContext): str
   const rawText = msg?.text ?? msg?.caption;
   const botUsername = ctx.me?.username;
   if (isAbortRequestText(rawText, botUsername ? { botUsername } : undefined)) {
-    if (typeof chatId === "number") {
-      return `telegram:${chatId}:control`;
-    }
-    return "telegram:control";
+    return buildTelegramChatSequentialKey({ chatId, suffix: "control" });
   }
   if (isBtwRequestText(rawText, botUsername ? { botUsername } : undefined)) {
     const messageId = msg?.message_id;
@@ -58,8 +71,10 @@ export function getTelegramSequentialKey(ctx: TelegramSequentialKeyContext): str
   const threadId = isGroup
     ? resolveTelegramForumThreadId({ isForum, messageThreadId })
     : messageThreadId;
-  if (typeof chatId === "number") {
-    return threadId != null ? `telegram:${chatId}:topic:${threadId}` : `telegram:${chatId}`;
+  if (rawText && isCommandMessage(rawText)) {
+    // Keep command-only updates off the chat/model lane so deterministic plugin/native
+    // commands can execute while a long-running reply is still in progress.
+    return buildTelegramChatSequentialKey({ chatId, threadId, suffix: "command" });
   }
-  return "telegram:unknown";
+  return buildTelegramChatSequentialKey({ chatId, threadId });
 }

@@ -160,4 +160,27 @@ describe("registerTelegramNativeCommands real plugin registry", () => {
     );
     expect(sendMessage).not.toHaveBeenCalled();
   });
+
+  it("keeps plugin command handlers working after the global registry is cleared", async () => {
+    const { bot, commandHandlers, sendMessage, setMyCommands } = createCommandBot();
+
+    const registeredCommands = await registerPairMenu({ bot, setMyCommands });
+    expect(registeredCommands).toEqual(
+      expect.arrayContaining([{ command: "pair", description: "Pair device" }]),
+    );
+
+    clearPluginCommands();
+
+    const handler = commandHandlers.get("pair");
+    expect(handler).toBeTruthy();
+
+    await handler?.(createPrivateCommandContext({ match: "now", messageId: 3 }));
+
+    expect(deliveryMocks.deliverReplies).toHaveBeenCalledWith(
+      expect.objectContaining({
+        replies: [expect.objectContaining({ text: "paired:now" })],
+      }),
+    );
+    expect(sendMessage).not.toHaveBeenCalledWith(123, "Command not found.");
+  });
 });
